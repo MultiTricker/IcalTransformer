@@ -36,6 +36,28 @@ class Config
     public $outCacheValidity = '59 minutes';
 
     /**
+     * Mame v GET "cacheMinutes" pro prepsani vychoziho casu pro cache?
+     */
+    public function __construct()
+    {
+        if(isset($_GET['cacheMinutes']) && is_numeric($_GET['cacheMinutes']))
+        {
+            $cacheMinutes = (int)$_GET['cacheMinutes'];
+            if($cacheMinutes >= 5 && $cacheMinutes <= 1440) // min 5 minut, max 24 hodin
+            {
+                $this->fileValiditySec = $cacheMinutes * 60;
+                $this->outCacheValidity = ($cacheMinutes - 1) . ' minutes';
+
+                Logger::log( 'app', Logger::INFO ,  "Config: nastavuji cache z GET parametru na $cacheMinutes minut" );
+            }
+            else
+            {
+                Logger::log( 'app', Logger::ERROR ,  "Config: GET parametr cacheMinutes neobsahuje hodnotu v povolenem rozsahu" );
+            }
+        }
+    }
+
+    /**
      * Root adresar aplikace
      */
     public function getAppDir()
