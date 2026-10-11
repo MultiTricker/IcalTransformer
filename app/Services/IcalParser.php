@@ -237,29 +237,23 @@ class IcalParser
     }
 
 
+    /** 
+     * vyskyty opakovanych udalosti nahrazene vyjimkou (RECURRENCE-ID): [uid => [timestamp => true]]
+     * Vyjimka muze byt v souboru pred i za hlavni udalosti, proto se odstranuji az po nacteni celeho kalendare.
+     */
+    private $overriddenOccurrences = array();
+
     private function zpracujJednuUdalost( \App\Model\IcalEvent $event ) 
     {
+        if( $event->hasRecurrenceId() && $event->getUid() !== null ) {
+            // pokud ma udalost vyplnene RECURRENCE-ID, tak prepisuje jeden konkretni vyskyt udalosti se stejnym UID
+            // (zaznamenat i pro neplatnou vyjimku - napr. odmitnuty vyskyt nema byt zobrazen vubec)
+            $this->overriddenOccurrences[$event->getUid()][$event->getRecurrenceId()->getTimestamp()] = true;
+        }
+
         if( ! $event->isValid() ) {
             //D/ Logger::log( 'app', Logger::TRACE, "udalost neni platna: {$event->getSummary()}" );    
             return;
-        }
-
-        if( $event->hasRecurrenceId() ) {
-            // pokud ma udalost vyplnene RECURRENCE-ID, tak prepisuje jeden konkretni vyskyt udalosti se stejnym UID
-
-            //D/ Logger::log( 'app', Logger::TRACE, "  hledam udalost pro RecurrenceId [{$this->getRecurrenceId()}]" );    
-            // projit pole a najit udalosti se stejnym UID
-            foreach($this->events as $k => $val) { 
-                if( $val->getUid() === $event->getUid() ) {
-                // pokud maji konkretni zacatek = RECURRENCE-ID, tak z pole smazat
-                    //D/ Logger::log( 'app', Logger::TRACE, "  stejne UID: {$val}" );    
-                    if($val->getStart() == $event->getRecurrenceId() ) { 
-                        //D/ Logger::log( 'app', Logger::DEBUG, "-- udalost rusi starsi zaznam: {$val}" );    
-                        unset($this->events[$k]); 
-                    } 
-                }
-            } 
-
         }
 
         if( $event->isRecurrent() ) {
@@ -315,6 +309,7 @@ class IcalParser
         $this->dateFrom = $dateFrom;
         $this->dateToExclusive = $dateToExclusive;
         $this->events = array();
+        $this->overriddenOccurrences = array();
 
         while( $this->reader->nextLineAvailable() ) {
             $line = $this->reader->getLine();
@@ -323,9 +318,31 @@ class IcalParser
                 $this->readCalendarData( $dateFrom, $dateToExclusive );
             }
         }
+
+        $this->removeOverriddenOccurrences();
+
         //D/ $ct = count($this->events);
         //D/ Logger::log( 'app', Logger::DEBUG, "nacteno {$ct} udalosti" );    
         return $this->events;
+    }
+
+    /**
+     * Odstrani puvodni vyskyty opakovanych udalosti, ktere jsou nahrazene vyjimkou s RECURRENCE-ID.
+     * Samotne vyjimky (maji RECURRENCE-ID) se ponechavaji.
+     */
+    private function removeOverriddenOccurrences() {
+        if( count($this->overriddenOccurrences)==0 ) return;
+
+        foreach( $this->events as $k => $val ) {
+            if( $val->hasRecurrenceId() ) continue;
+            $uid = $val->getUid();
+            if( $uid===null || !isset($this->overriddenOccurrences[$uid]) ) continue;
+            if( isset($this->overriddenOccurrences[$uid][$val->getStart()->getTimestamp()]) ) {
+                //D/ Logger::log( 'app', Logger::DEBUG, "-- vyskyt nahrazen vyjimkou: {$val}" );    
+                unset($this->events[$k]);
+            }
+        }
+        $this->events = array_values( $this->events );
     }
 
 }
