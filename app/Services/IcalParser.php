@@ -38,7 +38,7 @@ class IcalParser
                 return;
             }
             if( $this->reader->command==="BEGIN" ) {
-                $this->ignoreObject( $this->reader>firstParam );
+                $this->ignoreObject( $this->reader->firstParam );
             }
         }
     }
@@ -68,7 +68,7 @@ class IcalParser
             if( !isset($attributes[$i]) ) break;
 
             $parts = explode( '=', $attributes[$i], 2 );
-            $attr = new \App\Model\KeyValueAttribute( $parts[0], $parts[1] );
+            $attr = new \App\Model\KeyValueAttribute( $parts[0], $parts[1] ?? "" );
             $this->commandAttributes[] = $attr;
 
             $i++;
@@ -93,7 +93,7 @@ class IcalParser
             if( !isset($attributes[$i]) ) break;
 
             $parts = explode( '=', $attributes[$i], 2 );
-            $attr = new \App\Model\KeyValueAttribute( $parts[0], $parts[1] );
+            $attr = new \App\Model\KeyValueAttribute( $parts[0], $parts[1] ?? "" );
             $this->commandAttributes[] = $attr;
 
             $i++;
